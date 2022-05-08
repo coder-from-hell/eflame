@@ -8,13 +8,12 @@
 -record(dump, {stack=[], us=0, acc=[]}). % per-process state
 
 -define(DEFAULT_MODE, normal_with_children).
--define(DEFAULT_OUTPUT_FILE, "stacks.out").
 
 apply(F, A) ->
-    apply1(?DEFAULT_MODE, ?DEFAULT_OUTPUT_FILE, {F, A}).
+    apply2(?DEFAULT_MODE, {F, A}).
 
 apply(M, F, A) ->
-    apply1(?DEFAULT_MODE, ?DEFAULT_OUTPUT_FILE, {{M, F}, A}).
+    apply2(?DEFAULT_MODE, {{M, F}, A}).
 
 apply(Mode, OutputFile, Fun, Args) ->
     apply1(Mode, OutputFile, {Fun, Args}).
@@ -31,6 +30,15 @@ apply1(Mode, OutputFile, {Fun, Args}) ->
 
     ok = file:write_file(OutputFile, Bytes),
     Return.
+
+apply2(Mode, {Fun, Args}) ->
+    Tracer = spawn_tracer(),
+
+    start_trace(Tracer, self(), Mode),
+    Return = (catch apply_fun(Fun, Args)),
+    {ok, TraceResult} = stop_trace(Tracer, self(), return_raw_stacktrace),
+
+    {Return, TraceResult}.
 
 apply_fun({M, F}, A) ->
     erlang:apply(M, F, A);
@@ -49,6 +57,17 @@ stop_trace(Tracer, Target) ->
     Tracer ! {dump_bytes, self()},
 
     Ret = receive {bytes, B} -> {ok, B}
+    after 5000 -> {error, timeout}
+    end,
+
+    exit(Tracer, normal),
+    Ret.
+
+stop_trace(Tracer, Target, return_raw_stacktrace) ->
+    erlang:trace(Target, false, [all]),
+    Tracer ! {dump, self()},
+
+    Ret = receive {stacks, S} -> {ok, S}
     after 5000 -> {error, timeout}
     end,
 
