@@ -12,7 +12,7 @@ defmodule Eflame.Mixfile do
   end
 
   def application do
-    [mod: {:eflame, []}]
+    [mod: {:eflame_app, []}]
   end
 
   defp deps do
