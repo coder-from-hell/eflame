@@ -2,18 +2,23 @@
 -export([apply/2,
          apply/3,
          apply/4,
-         apply/5]).
+         apply/5,
+         apply_and_return_stack_trace/2]).
 
 -define(RESOLUTION, 1000). %% us
 -record(dump, {stack=[], us=0, acc=[]}). % per-process state
 
 -define(DEFAULT_MODE, normal_with_children).
+-define(DEFAULT_OUTPUT_FILE, "stacks.out").
 
-apply(F, A) ->
+apply_and_return_stack_trace(F, A) ->
     apply2(?DEFAULT_MODE, {F, A}).
 
+apply(F, A) ->
+    apply1(?DEFAULT_MODE, ?DEFAULT_OUTPUT_FILE, {F, A}).
+
 apply(M, F, A) ->
-    apply2(?DEFAULT_MODE, {{M, F}, A}).
+    apply1(?DEFAULT_MODE, ?DEFAULT_OUTPUT_FILE, {{M, F}, A}).
 
 apply(Mode, OutputFile, Fun, Args) ->
     apply1(Mode, OutputFile, {Fun, Args}).
@@ -38,7 +43,7 @@ apply2(Mode, {Fun, Args}) ->
     Return = (catch apply_fun(Fun, Args)),
     {ok, TraceResult} = stop_trace(Tracer, self(), return_raw_stacktrace),
 
-    {Return, TraceResult}.
+    {Return, TraceResult}.     
 
 apply_fun({M, F}, A) ->
     erlang:apply(M, F, A);
